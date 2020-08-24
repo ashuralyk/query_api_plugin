@@ -1,3 +1,6 @@
+#include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/http_plugin/http_plugin.hpp>
+#include <eosio/chain/controller.hpp>
 #include <eosio/query_api_plugin/query_api_plugin.hpp>
 
 namespace eosio 
@@ -10,7 +13,7 @@ using namespace std;
 
 class query_api_plugin_impl
 {
-   const controller &_ctrl;
+   const chain::controller &_ctrl;
 
 public:
    query_api_plugin_impl( const controller &ctrl )
