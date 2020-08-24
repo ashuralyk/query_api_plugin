@@ -22,7 +22,7 @@ public:
 
    static auto api_get_token_contracts( const query_api_plugin_impl &impl )
    {
-      return api_description {
+      return api_description::value_type {
          "/v1/query/get_token_contracts",
          [&] (string, string, url_response_callback cb) { return impl.get_token_contracts(move(cb)); }
       };
