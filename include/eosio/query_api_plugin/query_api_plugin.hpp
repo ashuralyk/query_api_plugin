@@ -4,6 +4,7 @@
 namespace eosio {
 
 using namespace appbase;
+using namespace chain;
 
 /**
  *  This is a template plugin, intended to serve as a starting point for making new plugins

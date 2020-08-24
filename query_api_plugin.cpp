@@ -13,7 +13,7 @@ using namespace std;
 
 class query_api_plugin_impl
 {
-   const chain::controller &_ctrl;
+   const controller &_ctrl;
 
 public:
    query_api_plugin_impl( const controller &ctrl )
