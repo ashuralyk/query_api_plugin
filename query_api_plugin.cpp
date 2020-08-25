@@ -37,7 +37,7 @@ public:
       unordered_set<account_name> token_accounts;
       for ( auto i = first_block_num; i <= head_block_num; ++i )
       {
-         const signed_block_ptr &block = blog->read_block_by_num( i );
+         const signed_block_ptr &block = blog.read_block_by_num( i );
          for_each( block->transactions.begin(), block->transactions.end(), [&](const auto &v)
          {
             if ( v.trx.template contains<packed_transaction>() )
@@ -75,7 +75,7 @@ void query_api_plugin::plugin_startup() {
    auto& _http_plugin = app().get_plugin<http_plugin>();
    _http_plugin.add_api({
       query_api_plugin_impl::api_get_token_contracts( *my )
-   })
+   });
 }
 
 void query_api_plugin::plugin_shutdown() {
