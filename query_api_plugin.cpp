@@ -71,7 +71,7 @@ void query_api_plugin::plugin_startup() {
    ilog( "starting query_api_plugin" );
 
    const auto &ctrl = app().get_plugin<chain_plugin>().chain();
-   my->reset( new query_api_plugin_impl(ctrl) );
+   my.reset( new query_api_plugin_impl(ctrl) );
    auto& _http_plugin = app().get_plugin<http_plugin>();
    _http_plugin.add_api({
       query_api_plugin_impl::api_get_token_contracts( *my )
