@@ -1,8 +1,11 @@
 
+#include <mutex>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
-#include <eosio/chain/controller.hpp>
+#include <eosio/chain/controller.hpp> 
+#include <eosio/chain/thread_utils.hpp>
 #include <eosio/query_api_plugin/query_api_plugin.hpp>
+#include <fc/io/json.hpp>
 
 namespace eosio 
 {
@@ -81,9 +84,9 @@ public:
    }
 
 public:
-   query_api_plugin_impl( const chain_plugin &chain_plugin, uint8_t thread_num )
-      : _ctrl( chain_plugin.chain() )
-      , _chain_plugin( chain_plugin )
+   query_api_plugin_impl( const chain_plugin &chain, uint8_t thread_num )
+      : _ctrl( chain.chain() )
+      , _chain_plugin( chain )
       , _thread_pool( "query", static_cast<size_t>(thread_num) )
    {}
 
@@ -130,7 +133,7 @@ public:
       unordered_set<account_name> addons;
       for_each( tx.actions.begin(), tx.actions.end(), [&](const auto &a)
       {
-         if ( a.name == N(transfer) && !_token_accounts.contains(a.account) )
+         if ( a.name == N(transfer) && _token_accounts.count(a.account) <= 0 )
          {
             addons.insert( a.account );
          }
@@ -165,7 +168,7 @@ public:
          chain_apis::read_only::get_currency_balance_params cb_params {
             .account = params.account_name
          };
-         auto read_only = _chain_plugin.get_read_only_apis();
+         auto read_only = _chain_plugin.get_read_only_api();
          shared_lock<shared_mutex> rl( _smutex );
          for ( const auto &code : _token_contracts )
          {
@@ -200,10 +203,10 @@ void query_api_plugin::plugin_startup()
 {
    ilog( "starting query_api_plugin" );
 
-   auto &http_plugin = app().get_plugin<http_plugin>();
-   auto &chain_plugin = app().get_plugin<chain_plugin>();
-   my.reset( new query_api_plugin_impl(chain_plugin, 5) );
-   http_plugin.add_api( query_api_plugin_impl::register_apis(*my) );
+   auto &http = app().get_plugin<http_plugin>();
+   auto &chain = app().get_plugin<chain_plugin>();
+   my.reset( new query_api_plugin_impl(chain, 5) );
+   http.add_api( query_api_plugin_impl::register_apis(*my) );
    my->startup();
 }
 
