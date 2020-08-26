@@ -1,5 +1,5 @@
 
-#include <mutex>
+#include <shared_mutex>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/chain/controller.hpp> 
@@ -170,7 +170,7 @@ public:
          };
          auto read_only = _chain_plugin.get_read_only_api();
          shared_lock<shared_mutex> rl( _smutex );
-         for ( const auto &code : _token_contracts )
+         for ( const auto &code : _token_accounts )
          {
             cb_params.code = code;
             vector<asset> assets = read_only.get_currency_balance( cb_params );
