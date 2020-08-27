@@ -61,8 +61,8 @@ namespace io_params
 
 class query_api_plugin_impl
 {
-   const controller &_ctrl;
-   const chain_plugin &_chain_plugin;
+   controller &_ctrl;
+   chain_plugin &_chain_plugin;
    shared_mutex _smutex;
    unordered_set<account_name> _token_accounts;
    named_thread_pool _thread_pool;
@@ -84,7 +84,7 @@ public:
    }
 
 public:
-   query_api_plugin_impl( const chain_plugin &chain, uint8_t thread_num )
+   query_api_plugin_impl( chain_plugin &chain, uint8_t thread_num )
       : _ctrl( chain.chain() )
       , _chain_plugin( chain )
       , _thread_pool( "query", static_cast<size_t>(thread_num) )
@@ -150,7 +150,7 @@ public:
    // HTTP API implements
    //=========================
 
-   void get_token_contracts( url_response_callback &&cb ) const
+   void get_token_contracts( url_response_callback &&cb )
    {
       fc::variant result;
       shared_lock<shared_mutex> rl( _smutex );
@@ -159,7 +159,7 @@ public:
       cb( 200, result );
    }
 
-   void get_account_tokens( string &&body, url_response_callback &&cb ) const
+   void get_account_tokens( string &&body, url_response_callback &&cb )
    {
       io_params::get_account_tokens_result account_tokens;
       async_thread_pool( _thread_pool.get_executor(), [&]()
