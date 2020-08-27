@@ -74,11 +74,11 @@ public:
       return api_description {
          {
             "/v1/query/get_token_contracts",
-            [&] (string, string, url_response_callback cb) { return impl.get_token_contracts(move(cb)); }
+            [&] (string, string, url_response_callback cb) mutable { return impl.get_token_contracts(move(cb)); }
          },
          {
             "/v1/query/get_account_tokens",
-            [&] (string, string body, url_response_callback cb) { return impl.get_account_tokens(move(body), move(cb)); }
+            [&] (string, string body, url_response_callback cb) mutable { return impl.get_account_tokens(move(body), move(cb)); }
          }
       };
    }
