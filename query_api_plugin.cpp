@@ -39,7 +39,7 @@ namespace
       EOS_RETHROW_EXCEPTIONS( chain::invalid_http_request, "Unable to parse valid input from POST body" );
    }
 
-   bool valid_token_contract( const controller &ctrl const action &act )
+   bool valid_token_contract( const controller &ctrl, const action &act )
    {
       if ( act.name == N(transfer) )
       {
