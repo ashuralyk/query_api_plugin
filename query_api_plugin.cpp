@@ -128,7 +128,6 @@ public:
                });
             }
          });
-         ilog( "have filtered total ${n} token accounts from block_log", ("n", _token_accounts.size()) );
       }
 
       _accepted_transaction_connection.emplace(
@@ -136,6 +135,8 @@ public:
             update_token_accounts( tm );
          })
       );
+
+      ilog( "have filtered total ${n} token accounts from block_log", ("n", _token_accounts.size()) );
    }
 
    void shutdown()
