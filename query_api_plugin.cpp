@@ -69,16 +69,16 @@ class query_api_plugin_impl
    fc::optional<boost::signals2::scoped_connection> _accepted_transaction_connection;
 
 public:
-   static auto register_apis( const query_api_plugin_impl &impl )
+   static auto register_apis( query_api_plugin_impl &impl )
    {
       return api_description {
          {
             "/v1/query/get_token_contracts",
-            [&] (string, string, url_response_callback cb) mutable { return impl.get_token_contracts(move(cb)); }
+            [&] (string, string, url_response_callback cb) { return impl.get_token_contracts(move(cb)); }
          },
          {
             "/v1/query/get_account_tokens",
-            [&] (string, string body, url_response_callback cb) mutable { return impl.get_account_tokens(move(body), move(cb)); }
+            [&] (string, string body, url_response_callback cb) { return impl.get_account_tokens(move(body), move(cb)); }
          }
       };
    }
