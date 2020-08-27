@@ -39,14 +39,14 @@ namespace
       EOS_RETHROW_EXCEPTIONS( chain::invalid_http_request, "Unable to parse valid input from POST body" );
    }
 
-   bool valid_token_contract( const read_only &ro, const action &act )
+   bool valid_token_contract( const chain_apis::read_only &ro, const action &act )
    {
       if ( act.name == N(transfer) )
       {
-         const auto result = ro.get_abi( read_only::get_abi_params { act.account } );
+         const auto result = ro.get_abi( chain_apis::read_only::get_abi_params { act.account } );
          if ( result.abi )
          {
-            return any_of( result.abi.tables.begin(), result.abi.tables.end(), [](const auto &v) {
+            return any_of( result.abi->tables.begin(), result.abi->tables.end(), [](const auto &v) {
                return v.name == N(accounts);
             });
          }
