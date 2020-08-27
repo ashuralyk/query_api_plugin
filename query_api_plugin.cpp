@@ -39,17 +39,16 @@ namespace
       EOS_RETHROW_EXCEPTIONS( chain::invalid_http_request, "Unable to parse valid input from POST body" );
    }
 
-   bool valid_token_contract( const controller &ctrl, const action &act )
+   bool valid_token_contract( const read_only &ro, const action &act )
    {
       if ( act.name == N(transfer) )
       {
-         const abi_def abi = chain_apis::get_abi( ctrl, act.account );
-         for ( const auto &t : abi.tables )
+         const auto result = ro.get_abi( read_only::get_abi_params { act.account } );
+         if ( result.abi )
          {
-            if ( t.name == N(accounts) )
-            {
-               return true;
-            }
+            return any_of( result.abi.tables.begin(), result.abi.tables.end(), [](const auto &v) {
+               return v.name == N(accounts);
+            });
          }
       }
       return false;
@@ -122,7 +121,7 @@ public:
                const auto &tx = v.trx.template get<packed_transaction>().get_transaction();
                for_each( tx.actions.begin(), tx.actions.end(), [&](const auto &a)
                {
-                  if ( valid_token_contract(_ctrl, a) )
+                  if ( valid_token_contract(_chain_plugin.get_read_only_api(), a) )
                   {
                      _token_accounts.insert( a.account );
                   }
@@ -150,7 +149,7 @@ public:
       unordered_set<account_name> addons;
       for_each( tx.actions.begin(), tx.actions.end(), [&](const auto &a)
       {
-         if ( valid_token_contract(_ctrl, a) && _token_accounts.count(a.account) <= 0 )
+         if ( valid_token_contract(_chain_plugin.get_read_only_api(), a) && _token_accounts.count(a.account) <= 0 )
          {
             addons.insert( a.account );
          }
