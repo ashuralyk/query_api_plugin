@@ -38,6 +38,22 @@ namespace
       }
       EOS_RETHROW_EXCEPTIONS( chain::invalid_http_request, "Unable to parse valid input from POST body" );
    }
+
+   bool valid_token_contract( const controller &ctrl const action &act )
+   {
+      if ( act.name == N(transfer) )
+      {
+         const abi_def abi = chain_apis::get_abi( ctrl, act.account );
+         for ( const auto &t : abi.tables )
+         {
+            if ( t.name == N(accounts) )
+            {
+               return true;
+            }
+         }
+      }
+      return false;
+   }
 }
 
 namespace io_params
@@ -106,13 +122,14 @@ public:
                const auto &tx = v.trx.template get<packed_transaction>().get_transaction();
                for_each( tx.actions.begin(), tx.actions.end(), [&](const auto &a)
                {
-                  if ( a.name == N(transfer) )
+                  if ( valid_token_contract(_ctrl, a) )
                   {
                      _token_accounts.insert( a.account );
                   }
                });
             }
          });
+         ilog( "have filtered total ${n} token accounts from block_log", ("n", _token_accounts.size()) );
       }
 
       _accepted_transaction_connection.emplace(
@@ -133,7 +150,7 @@ public:
       unordered_set<account_name> addons;
       for_each( tx.actions.begin(), tx.actions.end(), [&](const auto &a)
       {
-         if ( a.name == N(transfer) && _token_accounts.count(a.account) <= 0 )
+         if ( valid_token_contract(_ctrl, a) && _token_accounts.count(a.account) <= 0 )
          {
             addons.insert( a.account );
          }
