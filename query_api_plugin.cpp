@@ -109,8 +109,8 @@ public:
    void initialize( uint32_t min_block, uint32_t max_block )
    {
       const auto &blog = _ctrl.block_log();
-      auto first_block_num = fc::max( blog.first_block_num(), min_block );
-      auto head_block_num = fc::min( blog.head()->block_num(), max_block );
+      auto first_block_num = fc::max<uint32_t>( blog.first_block_num(), min_block );
+      auto head_block_num = fc::min<uint32_t>( blog.head()->block_num(), max_block );
       if ( first_block_num > head_block_num )
       {
          return;
