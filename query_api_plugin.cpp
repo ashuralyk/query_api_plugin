@@ -99,18 +99,24 @@ public:
    }
 
 public:
-   query_api_plugin_impl( chain_plugin &chain, uint8_t thread_num )
+   query_api_plugin_impl( chain_plugin &chain, uint8_t thread_num, const unordered_set<account_name> &&accounts )
       : _ctrl( chain.chain() )
       , _chain_plugin( chain )
       , _thread_pool( "query", static_cast<size_t>(thread_num) )
+      , _token_accounts( accounts )
    {}
 
-   void startup()
+   void initialize( uint32_t min_block, uint32_t max_block )
    {
       const auto &blog = _ctrl.block_log();
-      auto first_block_num = blog.first_block_num();
-      auto head_block_num = blog.head()->block_num();
-      ilog( "scanning token contracts from block ${b} to block ${e} in block_log, this may take a few minutes.", ("b", first_block_num)("e", head_block_num) );
+      auto first_block_num = max( blog.first_block_num(), min_block );
+      auto head_block_num = min( blog.head()->block_num(), max_block );
+      if ( first_block_num > head_block_num )
+      {
+         return;
+      }
+
+      ilog( "scanning token accounts from block ${b} to block ${e} in block_log, this may take significant minutes.", ("b", first_block_num)("e", head_block_num) );
       for ( auto i = first_block_num; i <= head_block_num; ++i )
       {
          const signed_block_ptr &block = blog.read_block_by_num( i );
@@ -128,15 +134,22 @@ public:
                });
             }
          });
+         if ( (i - first_block_num) % 2000 == 0 )
+         {
+            ilog( "have filtered ${n} token accounts so far from 2000 blocks in block_log", ("n", _token_accounts.size()) );
+         }
       }
 
+      ilog( "scanning done! have totally filtered ${n} token accounts from ${b} blocks in block_log", ("n", _token_accounts.size())("b", head_block_num - first_block_num + 1) );
+   }
+
+   void startup()
+   {
       _accepted_transaction_connection.emplace(
          _ctrl.accepted_transaction.connect( [&](const transaction_metadata_ptr &tm) {
             update_token_accounts( tm );
          })
       );
-
-      ilog( "have filtered total ${n} token accounts from block_log", ("n", _token_accounts.size()) );
    }
 
    void shutdown()
@@ -160,6 +173,7 @@ public:
       {
          unique_lock<shared_mutex> wl( _smutex );
          _token_accounts.insert( addons.begin(), addons.end() );
+         ilog( "filtered ${n} new token accounts from transaction ${id}", ("n", addons.size())("id", tx_meta->id()) );
       }
    }
 
@@ -178,6 +192,7 @@ public:
 
    void get_account_tokens( string &&body, url_response_callback &&cb )
    {
+      unordered_set<account_name> invalid;
       io_params::get_account_tokens_result account_tokens;
       async_thread_pool( _thread_pool.get_executor(), [&]()
       {
@@ -190,17 +205,31 @@ public:
          for ( const auto &code : _token_accounts )
          {
             cb_params.code = code;
-            vector<asset> assets = read_only.get_currency_balance( cb_params );
-            if (! assets.empty() )
+            try
             {
-               account_tokens.tokens.emplace_back( io_params::get_account_tokens_result::code_assets {
-                  .code   = code,
-                  .assets = assets
-               });
+               vector<asset> assets = read_only.get_currency_balance( cb_params );
+               if (! assets.empty() )
+               {
+                  account_tokens.tokens.emplace_back( io_params::get_account_tokens_result::code_assets {
+                     .code   = code,
+                     .assets = assets
+                  });
+               }
+            }
+            catch (...)
+            {
+               // maybe the token contract in code has been removed with set_code()
+               invalid.insert( code );
             }
          }
          rl.unlock();
       }).get();
+
+      if (! invalid.empty() )
+      {
+         unique_lock<shared_mutex> wl( _smutex );
+         _token_accounts.erase( invalid.begin(), invalid.end() );
+      }
 
       fc::variant result;
       fc::to_variant( account_tokens, result );
@@ -208,22 +237,51 @@ public:
    }
 };
 
-query_api_plugin::query_api_plugin() {}
-query_api_plugin::~query_api_plugin() {}
-
 // API plugin no need to do these
-void query_api_plugin::set_program_options(options_description&, options_description& cfg) {}
-void query_api_plugin::plugin_initialize(const variables_map& options) {}
+void query_api_plugin::set_program_options( options_description &cli, options_description &cfg )
+{
+   cfg.add_options()
+      ("thread-pool-size", bpo::value<uint8_t>()->default_value(2), "number of threads in thread_pool.")
+      ("blocknum-scan-from", bpo::value<uint32_t>()->default_value(0), "lower bound block number the scanning process scans from (can be lower than the minimum in block_log).")
+      ("blocknum-scan-to", bpo::value<uint32_t>()->default_value(-1), "upper bound block number the scanning process scans to (can be greater than the maximum in block_blog).");
+
+   cli.add_options()
+      ("accounts-json", bpo::value<bfs::path>(), "the file path to import recorded token accounts.");
+}
+
+void query_api_plugin::plugin_initialize( const variables_map &options )
+{
+   ilog( "starting query_api_plugin" );
+
+   auto pool_size = options.at("thread-pool-size").as<uint8_t>();
+   EOS_ASSERT( pool_size > 0, plugin_config_exception, "invalid thread_pool size config (> 0)" );
+
+   auto min_block = options.at("blocknum-scan-from").as<uint32_t>();
+   auto max_block = options.at("blocknum-scan-to").as<uint32_t>();
+   EOS_ASSERT( max_block >= min_block, plugin_config_exception, "invalid block number config (from >= to)" );
+
+   unordered_set<account_name> accounts;
+   if ( options.count("accounts-json") )
+   {
+      auto accounts_file = options.at("accounts-json").as<bfs::path>();
+      if ( accounts_file.is_relative() )
+      {
+         accounts_file = bfs::current_path() / genesis_file;
+      }
+      EOS_ASSERT( fc::is_regular_file(accounts_file), plugin_config_exception,
+         "specified accounts json file '${f}' does not exist.", ("f", accounts_file.generic_string()) );
+      accounts = fc::json::from_file(accounts_file).as<unordered_set<account_name>>();
+      ilog( "imported ${n} token accounts from '${f}'", ("n", accounts.size())("f", accounts_file.generic_string()) );
+   }
+
+   my.reset( new query_api_plugin_impl(app().get_plugin<chain_plugin>(), pool_size, move(accounts)) );
+   my->initialize( min_block, max_block );
+}
 
 // set up API handler
 void query_api_plugin::plugin_startup()
 {
-   ilog( "starting query_api_plugin" );
-
-   auto &http = app().get_plugin<http_plugin>();
-   auto &chain = app().get_plugin<chain_plugin>();
-   my.reset( new query_api_plugin_impl(chain, 5) );
-   http.add_api( query_api_plugin_impl::register_apis(*my) );
+   app().get_plugin<http_plugin>().add_api( query_api_plugin_impl::register_apis(*my) );
    my->startup();
 }
 
