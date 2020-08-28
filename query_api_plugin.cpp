@@ -109,8 +109,8 @@ public:
    void initialize( uint32_t min_block, uint32_t max_block )
    {
       const auto &blog = _ctrl.block_log();
-      auto first_block_num = max( blog.first_block_num(), min_block );
-      auto head_block_num = min( blog.head()->block_num(), max_block );
+      auto first_block_num = fc::max( blog.first_block_num(), min_block );
+      auto head_block_num = fc::min( blog.head()->block_num(), max_block );
       if ( first_block_num > head_block_num )
       {
          return;
@@ -266,7 +266,7 @@ void query_api_plugin::plugin_initialize( const variables_map &options )
       auto accounts_file = options.at("accounts-json").as<bfs::path>();
       if ( accounts_file.is_relative() )
       {
-         accounts_file = bfs::current_path() / genesis_file;
+         accounts_file = bfs::current_path() / accounts_file;
       }
       EOS_ASSERT( fc::is_regular_file(accounts_file), plugin_config_exception,
          "specified accounts json file '${f}' does not exist.", ("f", accounts_file.generic_string()) );
