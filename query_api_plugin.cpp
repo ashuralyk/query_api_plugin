@@ -75,10 +75,6 @@ namespace io_params
    };
 }
 
-FC_REFLECT( eosio::io_params::get_account_tokens_params, (account_name) )
-FC_REFLECT( eosio::io_params::get_account_tokens_result, (tokens) )
-FC_REFLECT( eosio::io_params::get_account_tokens_result::code_assets, (code)(assets) )
-
 class query_api_plugin_impl
 {
    controller &_ctrl;
@@ -242,9 +238,9 @@ public:
       io_params::get_account_tokens_result account_tokens;
       for ( const future &promise : promises )
       {
-         auto [invalid, tokens] = promise.get();
-         total_invalid.insert( invalid.begin(), invalid.end() );
+         auto [tokens, invalid] = promise.get();
          account_tokens.tokens.insert( tokens.begin(), tokens.end() );
+         total_invalid.insert( invalid.begin(), invalid.end() );
       }
 
       if (! total_invalid.empty() )
@@ -318,3 +314,7 @@ void query_api_plugin::plugin_shutdown()
 }
 
 }
+
+FC_REFLECT( eosio::io_params::get_account_tokens_params, (account_name) )
+FC_REFLECT( eosio::io_params::get_account_tokens_result, (tokens) )
+FC_REFLECT( eosio::io_params::get_account_tokens_result::code_assets, (code)(assets) )
