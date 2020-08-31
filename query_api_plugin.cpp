@@ -195,10 +195,10 @@ public:
 
    void get_account_tokens( string &&body, url_response_callback &&cb )
    {
-      vector<future> promises;
+      vector<future<tuple<vector<io_params::get_account_tokens_result::code_assets>, unordered_set<account_name>>>> promises;
       for ( auto i = 0; i < _thread_num; ++i )
       {
-         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [i, step = _token_accounts.size() / _thread_num, this]()
+         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [i, step = _token_accounts.size() / _thread_num, &body, this]()
          {
             auto params = parse_body<io_params::get_account_tokens_params>( body );
             chain_apis::read_only::get_currency_balance_params cb_params {
@@ -208,8 +208,8 @@ public:
             vector<io_params::get_account_tokens_result::code_assets> tokens;
             auto read_only = _chain_plugin.get_read_only_api();
             shared_lock<shared_mutex> rl( _smutex );
-            for ( auto b = advance(_token_accounts.begin(), i * step), 
-               e = advance(_token_accounts.begin(), (i + 1 < _thread_num ? (i + 1) * step : _token_accounts.size())); b != e; ++b )
+            auto b = _token_accounts.begin(), e = _token_accounts.begin();
+            for ( advance(b, i * step), advance(e, (i + 1 < _thread_num ? (i + 1) * step : _token_accounts.size())); b != e; ++b )
             {
                cb_params.code = b->code;
                try
@@ -226,7 +226,7 @@ public:
                catch (...)
                {
                   // maybe the token contract in code has been removed with set_code()
-                  invalid.insert( code );
+                  invalid.insert( cb_params.code );
                }
             }
             rl.unlock();
@@ -236,7 +236,7 @@ public:
 
       unordered_set<account_name> total_invalid;
       io_params::get_account_tokens_result account_tokens;
-      for ( const future &promise : promises )
+      for ( const auto &promise : promises )
       {
          auto [tokens, invalid] = promise.get();
          account_tokens.tokens.insert( tokens.begin(), tokens.end() );
