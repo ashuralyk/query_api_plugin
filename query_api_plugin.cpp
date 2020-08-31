@@ -101,7 +101,7 @@ public:
    }
 
 public:
-   query_api_plugin_impl( chain_plugin &chain, uint8_t thread_num, const unordered_set<account_name> &&accounts )
+   query_api_plugin_impl( chain_plugin &chain, uint16_t thread_num, const unordered_set<account_name> &&accounts )
       : _ctrl( chain.chain() )
       , _chain_plugin( chain )
       , _token_accounts( accounts )
@@ -259,16 +259,11 @@ public:
    }
 };
 
-query_api_plugin::query_api_plugin()
-{
-   app().register_config_type<uint8_t>();
-}
-
 // API plugin no need to do these
 void query_api_plugin::set_program_options( options_description &cli, options_description &cfg )
 {
    cfg.add_options()
-      ("thread-pool-size", bpo::value<uint8_t>()->default_value(2), "number of threads in thread_pool.")
+      ("thread-pool-size", bpo::value<uint16_t>()->default_value(2), "number of threads in thread_pool.")
       ("blocknum-scan-from", bpo::value<uint32_t>()->default_value(0), "lower bound block number the scanning process scans from (can be lower than the minimum in block_log).")
       ("blocknum-scan-to", bpo::value<uint32_t>()->default_value(-1), "upper bound block number the scanning process scans to (can be greater than the maximum in block_blog).");
 
@@ -280,7 +275,7 @@ void query_api_plugin::plugin_initialize( const variables_map &options )
 {
    ilog( "starting query_api_plugin" );
 
-   auto pool_size = options.at("thread-pool-size").as<uint8_t>();
+   auto pool_size = options.at("thread-pool-size").as<uint16_t>();
    EOS_ASSERT( pool_size > 0, plugin_config_exception, "invalid thread_pool size config (> 0)" );
 
    auto min_block = options.at("blocknum-scan-from").as<uint32_t>();

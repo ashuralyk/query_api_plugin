@@ -14,7 +14,7 @@ class query_api_plugin
    : public appbase::plugin<query_api_plugin>
 {
 public:
-   query_api_plugin();
+   query_api_plugin() {}
    virtual ~query_api_plugin() {}
  
    APPBASE_PLUGIN_REQUIRES()
