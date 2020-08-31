@@ -234,7 +234,6 @@ public:
                   invalid.insert( cb_params.code );
                }
             }
-            rl.unlock();
             return make_tuple( tokens, invalid );
          }));
       }
