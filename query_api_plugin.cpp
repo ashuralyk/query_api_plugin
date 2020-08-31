@@ -74,6 +74,10 @@ namespace io_params
    };
 }
 
+FC_REFLECT( eosio::io_params::get_account_tokens_params, (account_name) )
+FC_REFLECT( eosio::io_params::get_account_tokens_result, (tokens) )
+FC_REFLECT( eosio::io_params::get_account_tokens_result::code_assets, (code)(assets) )
+
 class query_api_plugin_impl
 {
    controller &_ctrl;
@@ -134,9 +138,9 @@ public:
                });
             }
          });
-         if ( (i - first_block_num) % 2000 == 0 )
+         if ( (i - first_block_num) % 5000 == 0 )
          {
-            ilog( "have filtered ${n} token accounts so far from 2000 blocks in block_log", ("n", _token_accounts.size()) );
+            ilog( "have filtered ${n} token accounts so far from 5000 blocks (${i} of ${e}) in block_log", ("n", _token_accounts.size())("i", i)("e", head_block_num) );
          }
       }
 
@@ -296,7 +300,3 @@ void query_api_plugin::plugin_shutdown()
 }
 
 }
-
-FC_REFLECT( eosio::io_params::get_account_tokens_params, (account_name) )
-FC_REFLECT( eosio::io_params::get_account_tokens_result, (tokens) )
-FC_REFLECT( eosio::io_params::get_account_tokens_result::code_assets, (code)(assets) )
