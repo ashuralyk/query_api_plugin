@@ -1,5 +1,6 @@
 
 #include <shared_mutex>
+#include <tuple>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/chain/controller.hpp> 
@@ -85,6 +86,7 @@ class query_api_plugin_impl
    shared_mutex _smutex;
    unordered_set<account_name> _token_accounts;
    named_thread_pool _thread_pool;
+   uint8_t _thread_num;
    fc::optional<boost::signals2::scoped_connection> _accepted_transaction_connection;
 
 public:
@@ -107,6 +109,7 @@ public:
       : _ctrl( chain.chain() )
       , _chain_plugin( chain )
       , _token_accounts( accounts )
+      , _thread_num( thread_num )
       , _thread_pool( "query", static_cast<size_t>(thread_num) )
    {}
 
@@ -196,43 +199,58 @@ public:
 
    void get_account_tokens( string &&body, url_response_callback &&cb )
    {
-      unordered_set<account_name> invalid;
-      io_params::get_account_tokens_result account_tokens;
-      async_thread_pool( _thread_pool.get_executor(), [&]()
+      vector<future> promises;
+      for ( auto i = 0; i < _thread_num; ++i )
       {
-         auto params = parse_body<io_params::get_account_tokens_params>( body );
-         chain_apis::read_only::get_currency_balance_params cb_params {
-            .account = params.account_name
-         };
-         auto read_only = _chain_plugin.get_read_only_api();
-         shared_lock<shared_mutex> rl( _smutex );
-         for ( const auto &code : _token_accounts )
+         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [i, step = _token_accounts.size() / _thread_num, this]()
          {
-            cb_params.code = code;
-            try
+            auto params = parse_body<io_params::get_account_tokens_params>( body );
+            chain_apis::read_only::get_currency_balance_params cb_params {
+               .account = params.account_name
+            };
+            unordered_set<account_name> invalid;
+            vector<io_params::get_account_tokens_result::code_assets> tokens;
+            auto read_only = _chain_plugin.get_read_only_api();
+            shared_lock<shared_mutex> rl( _smutex );
+            for ( auto b = advance(_token_accounts.begin(), i * step), 
+               e = advance(_token_accounts.begin(), (i + 1 < _thread_num ? (i + 1) * step : _token_accounts.size())); b != e; ++b )
             {
-               vector<asset> assets = read_only.get_currency_balance( cb_params );
-               if (! assets.empty() )
+               cb_params.code = b->code;
+               try
                {
-                  account_tokens.tokens.emplace_back( io_params::get_account_tokens_result::code_assets {
-                     .code   = code,
-                     .assets = assets
-                  });
+                  vector<asset> assets = read_only.get_currency_balance( cb_params );
+                  if (! assets.empty() )
+                  {
+                     tokens.emplace_back( io_params::get_account_tokens_result::code_assets {
+                        .code   = cb_params.code,
+                        .assets = assets
+                     });
+                  }
+               }
+               catch (...)
+               {
+                  // maybe the token contract in code has been removed with set_code()
+                  invalid.insert( code );
                }
             }
-            catch (...)
-            {
-               // maybe the token contract in code has been removed with set_code()
-               invalid.insert( code );
-            }
-         }
-         rl.unlock();
-      }).get();
+            rl.unlock();
+            return make_tuple( tokens, invalid );
+         }));
+      }
 
-      if (! invalid.empty() )
+      unordered_set<account_name> total_invalid;
+      io_params::get_account_tokens_result account_tokens;
+      for ( const future &promise : promises )
+      {
+         auto [invalid, tokens] = promise.get();
+         total_invalid.insert( invalid.begin(), invalid.end() );
+         account_tokens.tokens.insert( tokens.begin(), tokens.end() );
+      }
+
+      if (! total_invalid.empty() )
       {
          unique_lock<shared_mutex> wl( _smutex );
-         _token_accounts.erase( invalid.begin(), invalid.end() );
+         _token_accounts.erase( total_invalid.begin(), total_invalid.end() );
       }
 
       fc::variant result;
