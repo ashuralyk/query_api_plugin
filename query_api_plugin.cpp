@@ -245,7 +245,7 @@ public:
       {
          unordered_set<account_name> invalid;
          vector<io_params::get_account_tokens_result::code_assets> tokens;
-         tie(invalid, tokens) = promise.get();
+         tie(tokens, invalid) = promise.get();
          account_tokens.tokens.insert( account_tokens.tokens.end(), tokens.begin(), tokens.end() );
          total_invalid.insert( invalid.begin(), invalid.end() );
       }
