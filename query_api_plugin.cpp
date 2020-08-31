@@ -204,9 +204,9 @@ public:
          auto step = accounts.size() / _thread_num;
          auto begin = i * step;
          auto end = (i + 1 < _thread_num) ? (i + 1) * step : accounts.size();
-         ilog( "i = ${i}, begin = ${b}, end = ${e}, threads = ${t}", ("i", i)("b", begin)("e", end)("t", _thread_num) );
          promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &accounts, &body, begin, end]()
          {
+            ilog( "begin = ${b}, end = ${e}", ("b", begin)("e", end) );
             auto params = parse_body<io_params::get_account_tokens_params>( body );
             chain_apis::read_only::get_currency_balance_params cb_params {
                .account = params.account_name
@@ -234,6 +234,7 @@ public:
                   invalid.insert( cb_params.code );
                }
             }
+            ilog( "handled invalid = ${i}, tokens = ${t}", ("i", invalid.size())("t", tokens.size()) );
             return make_tuple( tokens, invalid );
          }));
       }
@@ -242,7 +243,9 @@ public:
       io_params::get_account_tokens_result account_tokens;
       for ( auto &promise : promises )
       {
-         auto [tokens, invalid] = promise.get();
+         unordered_set<account_name> invalid;
+         vector<io_params::get_account_tokens_result::code_assets> tokens;
+         tie(invalid, tokens) = promise.get();
          account_tokens.tokens.insert( account_tokens.tokens.end(), tokens.begin(), tokens.end() );
          total_invalid.insert( invalid.begin(), invalid.end() );
       }
