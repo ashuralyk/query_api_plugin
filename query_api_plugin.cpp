@@ -239,7 +239,7 @@ public:
       for ( auto &promise : promises )
       {
          auto [tokens, invalid] = promise.get();
-         account_tokens.tokens.insert( tokens.begin(), tokens.end() );
+         account_tokens.tokens.insert( account_tokens.tokens.end(), tokens.begin(), tokens.end() );
          total_invalid.insert( invalid.begin(), invalid.end() );
       }
 
