@@ -240,8 +240,6 @@ public:
 query_api_plugin::query_api_plugin()
 {
    app().register_config_type<uint8_t>();
-   app().register_config_type<uint32_t>();
-   app().register_config_type<bfs::path>();
 }
 
 // API plugin no need to do these
