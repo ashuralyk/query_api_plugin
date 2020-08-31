@@ -211,7 +211,7 @@ public:
             auto b = _token_accounts.begin(), e = _token_accounts.begin();
             for ( advance(b, i * step), advance(e, (i + 1 < _thread_num ? (i + 1) * step : _token_accounts.size())); b != e; ++b )
             {
-               cb_params.code = b->code;
+               cb_params.code = *b;
                try
                {
                   vector<asset> assets = read_only.get_currency_balance( cb_params );
@@ -236,7 +236,7 @@ public:
 
       unordered_set<account_name> total_invalid;
       io_params::get_account_tokens_result account_tokens;
-      for ( const auto &promise : promises )
+      for ( auto &promise : promises )
       {
          auto [tokens, invalid] = promise.get();
          account_tokens.tokens.insert( tokens.begin(), tokens.end() );
