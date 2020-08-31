@@ -105,8 +105,8 @@ public:
       : _ctrl( chain.chain() )
       , _chain_plugin( chain )
       , _token_accounts( accounts )
-      , _thread_num( thread_num )
       , _thread_pool( "query", static_cast<size_t>(thread_num) )
+      , _thread_num( thread_num )
    {}
 
    void initialize( uint32_t min_block, uint32_t max_block )
@@ -204,8 +204,8 @@ public:
          auto step = accounts.size() / _thread_num;
          auto begin = i * step;
          auto end = (i + 1 < _thread_num) ? (i + 1) * step : accounts.size();
-         ilog( "i = ${i}, begin = ${b}, end = ${e}", ("i", i)("b", begin)("e", end) );
-         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [&]()
+         ilog( "i = ${i}, begin = ${b}, end = ${e}, threads = ${t}", ("i", i)("b", begin)("e", end)("t", _thread_num) );
+         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &accounts, &body, begin, end]()
          {
             auto params = parse_body<io_params::get_account_tokens_params>( body );
             chain_apis::read_only::get_currency_balance_params cb_params {
