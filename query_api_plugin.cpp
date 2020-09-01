@@ -249,7 +249,7 @@ public:
          total_invalid.insert( invalid.begin(), invalid.end() );
       }
 
-      ilog( "handle total_invalid = ${t}", ("t", total_invalid.size()) )
+      ilog( "handle total_invalid = ${t}", ("t", total_invalid.size()) );
       if (! total_invalid.empty() )
       {
          unique_lock<shared_mutex> wl( _smutex );
