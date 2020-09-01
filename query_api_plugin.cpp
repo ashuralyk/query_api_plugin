@@ -250,7 +250,6 @@ public:
    }
 };
 
-// API plugin no need to do these
 void query_api_plugin::set_program_options( options_description &cli, options_description &cfg )
 {
    cfg.add_options()
@@ -291,7 +290,6 @@ void query_api_plugin::plugin_initialize( const variables_map &options )
    my->initialize( min_block, max_block );
 }
 
-// set up API handler
 void query_api_plugin::plugin_startup()
 {
    app().get_plugin<http_plugin>().add_api( query_api_plugin_impl::register_apis(*my) );
