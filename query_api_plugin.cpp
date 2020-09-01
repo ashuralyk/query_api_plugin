@@ -1,6 +1,5 @@
 
 #include <shared_mutex>
-#include <tuple>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/chain/controller.hpp> 
@@ -211,7 +210,6 @@ public:
             chain_apis::read_only::get_currency_balance_params cb_params {
                .account = params.account_name
             };
-            unordered_set<account_name> invalid;
             vector<io_params::get_account_tokens_result::code_assets> tokens;
             auto read_only = _chain_plugin.get_read_only_api();
             for ( auto i = begin; i < end; ++i )
@@ -231,29 +229,21 @@ public:
                catch (...)
                {
                   // maybe the token contract in code has been removed with set_code()
-                  invalid.insert( cb_params.code );
+                  unique_lock<shared_mutex> wl( _smutex );
+                  _token_accounts.erase( cb_params.code );
                }
             }
-            ilog( "handled invalid = ${i}, tokens = ${t}", ("i", invalid.size())("t", tokens.size()) );
-            return make_tuple( tokens, invalid );
+            ilog( "handled tokens = ${t}", ("t", tokens.size()) );
+            return tokens;
          }));
       }
 
-      unordered_set<account_name> total_invalid;
       io_params::get_account_tokens_result account_tokens;
       for ( auto &promise : promises )
       {
-         auto [tokens, invalid] = promise.get();
-         ilog( "received tokens = ${t}, invalid = ${i}", ("t", tokens.size())("i", invalid.size()) );
+         auto tokens = promise.get();
+         ilog( "received tokens = ${t}", ("t", tokens.size()) );
          account_tokens.tokens.insert( account_tokens.tokens.end(), tokens.begin(), tokens.end() );
-         total_invalid.insert( invalid.begin(), invalid.end() );
-      }
-
-      ilog( "handle total_invalid = ${t}", ("t", total_invalid.size()) );
-      if (! total_invalid.empty() )
-      {
-         unique_lock<shared_mutex> wl( _smutex );
-         _token_accounts.erase( total_invalid.begin(), total_invalid.end() );
       }
 
       ilog( "handle response" );
