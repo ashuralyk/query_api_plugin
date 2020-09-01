@@ -243,19 +243,20 @@ public:
       io_params::get_account_tokens_result account_tokens;
       for ( auto &promise : promises )
       {
-         unordered_set<account_name> invalid;
-         vector<io_params::get_account_tokens_result::code_assets> tokens;
-         tie(tokens, invalid) = promise.get();
+         auto [tokens, invalid] = promise.get();
+         ilog( "received tokens = ${t}, invalid = ${i}", ("t", tokens.size())("i", invalid.size()) );
          account_tokens.tokens.insert( account_tokens.tokens.end(), tokens.begin(), tokens.end() );
          total_invalid.insert( invalid.begin(), invalid.end() );
       }
 
+      ilog( "handle total_invalid = ${t}", ("t", total_invalid.size()) )
       if (! total_invalid.empty() )
       {
          unique_lock<shared_mutex> wl( _smutex );
          _token_accounts.erase( total_invalid.begin(), total_invalid.end() );
       }
 
+      ilog( "handle response" );
       fc::variant result;
       fc::to_variant( account_tokens, result );
       cb( 200, result );
