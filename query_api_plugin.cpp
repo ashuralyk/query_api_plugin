@@ -205,7 +205,7 @@ public:
          auto end = (i + 1 < _thread_num) ? (i + 1) * step : accounts.size();
          promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &accounts, &body, begin, end]()
          {
-            ilog( "begin = ${b}, end = ${e}", ("b", begin)("e", end) );
+            // ilog( "begin = ${b}, end = ${e}", ("b", begin)("e", end) );
             auto params = parse_body<io_params::get_account_tokens_params>( body );
             chain_apis::read_only::get_currency_balance_params cb_params {
                .account = params.account_name
@@ -233,7 +233,7 @@ public:
                   _token_accounts.erase( cb_params.code );
                }
             }
-            ilog( "handled tokens = ${t}", ("t", tokens.size()) );
+            // ilog( "handled tokens = ${t}", ("t", tokens.size()) );
             return tokens;
          }));
       }
@@ -242,11 +242,10 @@ public:
       for ( auto &promise : promises )
       {
          auto tokens = promise.get();
-         ilog( "received tokens = ${t}", ("t", tokens.size()) );
+         // ilog( "received tokens = ${t}", ("t", tokens.size()) );
          account_tokens.tokens.insert( account_tokens.tokens.end(), tokens.begin(), tokens.end() );
       }
 
-      ilog( "handle response" );
       fc::variant result;
       fc::to_variant( account_tokens, result );
       cb( 200, result );
