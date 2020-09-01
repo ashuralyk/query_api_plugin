@@ -197,7 +197,7 @@ public:
       shared_lock<shared_mutex> rl( _smutex );
       vector<account_name> accounts( _token_accounts.begin(), _token_accounts.end() );
       rl.unlock();
-      vector<future<tuple<vector<io_params::get_account_tokens_result::code_assets>, unordered_set<account_name>>>> promises;
+      vector<future<vector<io_params::get_account_tokens_result::code_assets>>> promises;
       for ( auto i = 0; i < _thread_num; ++i )
       {
          auto step = accounts.size() / _thread_num;
