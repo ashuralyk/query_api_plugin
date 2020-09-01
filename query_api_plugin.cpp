@@ -198,17 +198,17 @@ public:
       vector<account_name> accounts( _token_accounts.begin(), _token_accounts.end() );
       rl.unlock();
       vector<future<vector<io_params::get_account_tokens_result::code_assets>>> promises;
+      auto params = parse_body<io_params::get_account_tokens_params>( body );
+      ilog( "scanning tokens from account '${a}'", ("a", params.account_name) );
       for ( auto i = 0; i < _thread_num; ++i )
       {
          auto step = accounts.size() / _thread_num;
          auto begin = i * step;
          auto end = (i + 1 < _thread_num) ? (i + 1) * step : accounts.size();
-         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &accounts, &body, begin, end]()
+         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &accounts, account = params.account_name, begin, end]()
          {
-            // ilog( "begin = ${b}, end = ${e}", ("b", begin)("e", end) );
-            auto params = parse_body<io_params::get_account_tokens_params>( body );
             chain_apis::read_only::get_currency_balance_params cb_params {
-               .account = params.account_name
+               .account = account
             };
             vector<io_params::get_account_tokens_result::code_assets> tokens;
             auto read_only = _chain_plugin.get_read_only_api();
@@ -233,7 +233,6 @@ public:
                   _token_accounts.erase( cb_params.code );
                }
             }
-            // ilog( "handled tokens = ${t}", ("t", tokens.size()) );
             return tokens;
          }));
       }
@@ -242,7 +241,6 @@ public:
       for ( auto &promise : promises )
       {
          auto tokens = promise.get();
-         // ilog( "received tokens = ${t}", ("t", tokens.size()) );
          account_tokens.tokens.insert( account_tokens.tokens.end(), tokens.begin(), tokens.end() );
       }
 
