@@ -195,17 +195,17 @@ public:
    void get_account_tokens( string &&body, url_response_callback &&cb )
    {
       shared_lock<shared_mutex> rl( _smutex );
-      vector<account_name> accounts( _token_accounts.begin(), _token_accounts.end() );
+      vector<account_name> codes( _token_accounts.begin(), _token_accounts.end() );
       rl.unlock();
       vector<future<vector<io_params::get_account_tokens_result::code_assets>>> promises;
       auto params = parse_body<io_params::get_account_tokens_params>( body );
-      ilog( "scanning tokens from account '${a}'", ("a", params.account_name) );
+      ilog( "scanning ${t} tokens from account '${a}'", ("t", codes.size())("a", params.account_name) );
       for ( auto i = 0; i < _thread_num; ++i )
       {
-         auto step = accounts.size() / _thread_num;
+         auto step = codes.size() / _thread_num;
          auto begin = i * step;
-         auto end = (i + 1 < _thread_num) ? (i + 1) * step : accounts.size();
-         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &accounts, account = params.account_name, begin, end]()
+         auto end = (i + 1 < _thread_num) ? (i + 1) * step : codes.size();
+         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &codes, account = params.account_name, begin, end]()
          {
             chain_apis::read_only::get_currency_balance_params cb_params {
                .account = account
@@ -214,7 +214,7 @@ public:
             auto read_only = _chain_plugin.get_read_only_api();
             for ( auto i = begin; i < end; ++i )
             {
-               cb_params.code = accounts[i];
+               cb_params.code = codes[i];
                try
                {
                   vector<asset> assets = read_only.get_currency_balance( cb_params );
