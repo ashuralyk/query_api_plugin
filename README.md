@@ -2,9 +2,11 @@
 * 需要修改controller.hpp/cpp文件, 不然无法编译通过
 
 hpp中加入:
+#include <eosio/chain/block_log.hpp>
 const block_log& block_log()const;
 
 cpp中加入:
+//#include <eosio/chain/block_log.hpp>
 const block_log& controller::block_log()const { return my->blog; }
 
 * 参数描述
