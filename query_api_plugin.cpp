@@ -110,6 +110,8 @@ public:
 
    void initialize( uint32_t min_block, uint32_t max_block )
    {
+      ilog( "start initializing token accounts by scanning from controller's blocks log" );
+
       const auto &blog = _ctrl.block_log();
       auto first_block_num = std::max<uint32_t>( blog.first_block_num(), min_block );
       auto head_block_num = std::min<uint32_t>( blog.head()->block_num(), max_block );
@@ -118,7 +120,7 @@ public:
          return;
       }
 
-      ilog( "scanning token accounts from block ${b} to block ${e} in block_log, this may take significant minutes.", ("b", first_block_num)("e", head_block_num) );
+      ilog( "scanning token accounts from block ${b} to block ${e} in block_log, this may take significant minutes", ("b", first_block_num)("e", head_block_num) );
       for ( auto i = first_block_num; i <= head_block_num; ++i )
       {
          const signed_block_ptr &block = blog.read_block_by_num( i );
