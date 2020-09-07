@@ -43,13 +43,18 @@ namespace
    {
       if ( act.name == N(transfer) )
       {
-         const auto result = ro.get_abi( chain_apis::read_only::get_abi_params { act.account } );
-         if ( result.abi )
+         try
          {
-            return any_of( result.abi->tables.begin(), result.abi->tables.end(), [](const auto &v) {
-               return v.name == N(accounts);
-            });
+            const auto result = ro.get_abi( chain_apis::read_only::get_abi_params { act.account } );
+            if ( result.abi )
+            {
+               return any_of( result.abi->tables.begin(), result.abi->tables.end(), [](const auto &v) {
+                  return v.name == N(accounts);
+               });
+            }
          }
+         catch (...)
+         {}
       }
       return false;
    }
@@ -113,14 +118,21 @@ public:
       ilog( "start scanning whole ${a} EOSIO accounts, this may take significant minutes", ("a", accounts.size()) );
       for ( const auto &account : accounts )
       {
-         abi_def abi;
-         if ( abi_serializer::to_abi(account.abi, abi) )
+         try
          {
-            if ( any_of(abi.tables.begin(), abi.tables.end(), [](const auto &v) { return v.name == N(accounts); }) )
+            abi_def abi;
+            if ( abi_serializer::to_abi(account.abi, abi) )
             {
-               ilog( "have filtered token account '${a}'", ("a", account.name) );
-               _token_accounts.insert( account.name );
+               if ( any_of(abi.tables.begin(), abi.tables.end(), [](const auto &v) { return v.name == N(accounts); }) )
+               {
+                  ilog( "have filtered token account '${a}'", ("a", account.name) );
+                  _token_accounts.insert( account.name );
+               }
             }
+         }
+         catch (...)
+         {
+            elog( "encountered an error while serializing abi of account '${a}'", ("a", account.name) );
          }
       }
       ilog( "scanning done! have totally filtered ${n} token accounts", ("n", _token_accounts.size()) );
