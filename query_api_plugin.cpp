@@ -65,6 +65,7 @@ namespace io_params
    struct get_account_tokens_params
    {
       name account_name;
+      bool recent;
    };
 
    struct get_account_tokens_result
@@ -85,6 +86,7 @@ class query_api_plugin_impl
    chain_plugin &_chain_plugin;
    shared_mutex _smutex;
    unordered_set<account_name> _token_accounts;
+   unordered_set<account_name> _recent_token_accounts;
    named_thread_pool _thread_pool;
    uint8_t _thread_num;
    fc::optional<boost::signals2::scoped_connection> _accepted_transaction_connection;
@@ -155,20 +157,29 @@ public:
    void update_token_accounts( const transaction_metadata_ptr &tx_meta )
    {
       const auto &tx = tx_meta->packed_trx()->get_transaction();
-      unordered_set<account_name> addons;
+      unordered_set<account_name> addons, recent_addons;
       for_each( tx.actions.begin(), tx.actions.end(), [&](const auto &a)
       {
-         if ( valid_token_contract(_chain_plugin.get_read_only_api(), a) && _token_accounts.count(a.account) <= 0 )
+         if ( valid_token_contract(_chain_plugin.get_read_only_api(), a) )
          {
-            addons.insert( a.account );
+            if ( _token_accounts.count(a.account) <= 0 )        addons.insert( a.account );
+            if ( _recent_token_accounts.count(a.account) <= 0 ) recent_addons.insert( a.account );
          }
       });
 
-      if (! addons.empty() )
+      if ( addons.size() || recent_addons.size() )
       {
          unique_lock<shared_mutex> wl( _smutex );
-         _token_accounts.insert( addons.begin(), addons.end() );
-         ilog( "filtered ${n} new token accounts from transaction ${id}", ("n", addons.size())("id", tx_meta->id()) );
+         if ( addons.size() )
+         {
+            _token_accounts.insert( addons.begin(), addons.end() );
+            ilog( "filtered ${n} new token accounts from transaction ${id}", ("n", addons.size())("id", tx_meta->id()) );
+         }
+         if ( recent_addons.size() )
+         {
+            _recent_token_accounts.insert( recent_addons.begin(), recent_addons.end() );
+            ilog( "filtered ${n} new RECENT token accounts from transaction ${id}", ("n", addons.size())("id", tx_meta->id()) );
+         }
       }
    }
 
@@ -187,11 +198,12 @@ public:
 
    void get_account_tokens( string &&body, url_response_callback &&cb )
    {
-      shared_lock<shared_mutex> rl( _smutex );
-      vector<account_name> codes( _token_accounts.begin(), _token_accounts.end() );
-      rl.unlock();
       vector<future<vector<io_params::get_account_tokens_result::code_assets>>> promises;
       auto params = parse_body<io_params::get_account_tokens_params>( body );
+      shared_lock<shared_mutex> rl( _smutex );
+      vector<account_name> codes( params.recent ? _recent_token_accounts.begin() : _token_accounts.begin(),
+         params.recent ? _recent_token_accounts.end() : _token_accounts.end() );
+      rl.unlock();
       ilog( "scanning ${t} tokens from account '${a}'", ("t", codes.size())("a", params.account_name) );
       for ( auto i = 0; i < _thread_num; ++i )
       {
@@ -273,6 +285,6 @@ void query_api_plugin::plugin_shutdown()
 
 }
 
-FC_REFLECT( eosio::io_params::get_account_tokens_params, (account_name) )
+FC_REFLECT( eosio::io_params::get_account_tokens_params, (account_name)(recent) )
 FC_REFLECT( eosio::io_params::get_account_tokens_result, (tokens) )
 FC_REFLECT( eosio::io_params::get_account_tokens_result::code_assets, (code)(assets) )
