@@ -178,7 +178,7 @@ public:
          if ( recent_addons.size() )
          {
             _recent_token_accounts.insert( recent_addons.begin(), recent_addons.end() );
-            ilog( "filtered ${n} new RECENT token accounts from transaction ${id}", ("n", addons.size())("id", tx_meta->id()) );
+            ilog( "filtered ${n} new RECENT token accounts from transaction ${id}", ("n", recent_addons.size())("id", tx_meta->id()) );
          }
       }
    }
