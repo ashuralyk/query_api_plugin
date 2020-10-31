@@ -87,7 +87,7 @@ class query_api_plugin_impl
    shared_mutex _smutex;
    unordered_set<account_name> _token_accounts;
    unordered_set<account_name> _recent_token_accounts;
-   named_thread_pool _thread_pool;
+   boost::asio::thread_pool _thread_pool;
    uint8_t _thread_num;
    fc::optional<boost::signals2::scoped_connection> _accepted_transaction_connection;
 
@@ -110,7 +110,7 @@ public:
    query_api_plugin_impl( chain_plugin &chain, uint16_t thread_num )
       : _ctrl( chain.chain() )
       , _chain_plugin( chain )
-      , _thread_pool( "query", static_cast<size_t>(thread_num) )
+      , _thread_pool( static_cast<size_t>(thread_num) )
       , _thread_num( thread_num )
    {}
 
@@ -156,7 +156,7 @@ public:
 
    void update_token_accounts( const transaction_metadata_ptr &tx_meta )
    {
-      const auto &tx = tx_meta->packed_trx()->get_transaction();
+      const auto &tx = tx_meta->packed_trx->get_transaction();
       unordered_set<account_name> addons, recent_addons;
       for_each( tx.actions.begin(), tx.actions.end(), [&](const auto &a)
       {
@@ -173,12 +173,12 @@ public:
          if ( addons.size() )
          {
             _token_accounts.insert( addons.begin(), addons.end() );
-            ilog( "filtered ${n} new token accounts from transaction ${id}", ("n", addons.size())("id", tx_meta->id()) );
+            ilog( "filtered ${n} new token accounts from transaction ${id}", ("n", addons.size())("id", tx_meta->id) );
          }
          if ( recent_addons.size() )
          {
             _recent_token_accounts.insert( recent_addons.begin(), recent_addons.end() );
-            ilog( "filtered ${n} new RECENT token accounts from transaction ${id}", ("n", recent_addons.size())("id", tx_meta->id()) );
+            ilog( "filtered ${n} new RECENT token accounts from transaction ${id}", ("n", recent_addons.size())("id", tx_meta->id) );
          }
       }
    }
@@ -210,7 +210,7 @@ public:
          auto step = codes.size() / _thread_num;
          auto begin = i * step;
          auto end = (i + 1 < _thread_num) ? (i + 1) * step : codes.size();
-         promises.emplace_back( async_thread_pool( _thread_pool.get_executor(), [this, &codes, account = params.account_name, begin, end]()
+         promises.emplace_back( async_thread_pool( _thread_pool, [this, &codes, account = params.account_name, begin, end]()
          {
             chain_apis::read_only::get_currency_balance_params cb_params {
                .account = account
